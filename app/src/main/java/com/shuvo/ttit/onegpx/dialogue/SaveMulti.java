@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.shuvo.ttit.onegpx.createMenu.MapsActivityCreate.editedTrk;
+import static com.shuvo.ttit.onegpx.createMenu.MapsActivityForMulti.shareMulti;
 import static com.shuvo.ttit.onegpx.createMenu.MapsActivityForMulti.trk;
 
 
@@ -102,6 +103,7 @@ public class SaveMulti extends AppCompatDialogFragment {
         save.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                shareMulti.setVisibility(View.VISIBLE);
                 if (!MapsActivity.editOrNot) {
                     if (fileName.getText().toString().isEmpty()) {
                         Toast.makeText(getContext(), "Please Write Your File Name", Toast.LENGTH_SHORT).show();

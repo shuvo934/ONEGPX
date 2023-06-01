@@ -22,7 +22,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight=".4"
-            android:tint="#16a085"
+            app:tint="#16a085"
             android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp"
             app:srcCompat = "@drawable/map_green"/>
@@ -92,6 +92,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/white"
+            android:fontFamily="@font/open_sans_light_italic"
             android:text="Developed by:"
             android:textStyle="italic"
             android:textSize="12sp"/>
@@ -110,9 +111,11 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Version 6.0"
+        android:text="@string/version_control"
         android:textColor="@color/white"
         android:textSize="12sp"
+        android:visibility="gone"
+        android:fontFamily="@font/open_sans_light_italic"
         android:layout_alignParentBottom="true"
         android:layout_marginStart="10dp"
         android:layout_marginBottom="10dp"

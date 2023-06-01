@@ -1,5 +1,9 @@
 package com.shuvo.ttit.onegpx.createMenu;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -106,7 +110,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
     private Spinner selection;
     private Button drawLine, drawWayPoint, clearMap, back, autoLine, removeLast;
     private Button saveFile;
-    private Button shareMulti;
+    public static Button shareMulti;
     private Button instantWay;
 
     public static String length_multi = "";
@@ -864,7 +868,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
             @Override
             public void onClick(View v) {
 
-                shareMulti.setVisibility(View.VISIBLE);
+//                shareMulti.setVisibility(View.VISIBLE);
                 SaveMulti saveMulti = new SaveMulti();
                 saveMulti.show(getSupportFragmentManager(),"Multi");
             }
@@ -955,7 +959,8 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
                                     photoFile);
                             takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
                             try {
-                                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+//                                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+                                activityResultLauncher.launch(takePictureIntent);
                                 Log.i("Activity:", "Shuru hoise");
 
                             } catch (ActivityNotFoundException e) {
@@ -971,6 +976,49 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
             }
         });
     }
+
+    ActivityResultLauncher<Intent> activityResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    int resultCode = result.getResultCode();
+
+                    if (resultCode == RESULT_OK) {
+
+                        // Getting ImageFile Name
+                        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.getDefault()).format(new Date());
+                        System.out.println(timeStamp);
+                        imageFileName = "IMG_" + timeStamp;
+                        System.out.println(imageFileName);
+
+                        File imgFile = new  File(currentPhotoPath);
+                        if(imgFile.exists()) {
+                            System.out.println(currentPhotoPath);
+
+                            bitmap = BitmapFactory.decodeFile(currentPhotoPath);
+                            try {
+                                bitmap = modifyOrientation(bitmap, currentPhotoPath);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
+                            android.graphics.Bitmap.Config bitmapConfig = bitmap.getConfig();
+                            // set default bitmap config if none
+                            if(bitmapConfig == null) {
+                                bitmapConfig = android.graphics.Bitmap.Config.ARGB_8888;
+                            }
+                            // resource bitmaps are imutable,
+                            // so we need to convert it to mutable one
+                            bitmap = bitmap.copy(bitmapConfig, true);
+
+
+                            ImageDialogue imageDialogue = new ImageDialogue();
+                            imageDialogue.show(getSupportFragmentManager(),"Image");
+                        }
+                    }
+                }
+            }
+    );
 
     private File createImageFile() throws IOException {
         // Create an image file name
@@ -1031,188 +1079,188 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
-    public void getAddress(double lat, double lng) {
-        Geocoder geocoder = new Geocoder(MapsActivityForMulti.this, Locale.getDefault());
-        try {
-            List<Address> addresses = geocoder.getFromLocation(lat, lng, 1);
-            Address obj = addresses.get(0);
-            String adds = obj.getAddressLine(0);
-            String add = "Address from GeoCODE: ";
-            add = add + "\n" + obj.getCountryName();
-            add = add + "\n" + obj.getCountryCode();
-            add = add + "\n" + obj.getAdminArea();
-            add = add + "\n" + obj.getPostalCode();
-            add = add + "\n" + obj.getSubAdminArea();
-            add = add + "\n" + obj.getLocality();
-            add = add + "\n" + obj.getSubThoroughfare();
-
-            Log.v("IGA", "Address: " + add);
-            Log.v("NEW ADD", "Address: " + adds);
-            address = adds;
-            // Toast.makeText(this, "Address=>" + add,
-            // Toast.LENGTH_SHORT).show();
-
-            // TennisAppActivity.showDialog(add);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            address = "Address Not Found";
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-
-            double latitude = cameraLatLng[0].latitude;
-            double longitude = cameraLatLng[0].longitude;
-
-            // \n is for new line
-            //Toast.makeText(getApplicationContext(), "Your Location is - \nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
-
-            getAddress(latitude, longitude);
-
-            // Getting ImageFile Name
-            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.getDefault()).format(new Date());
-            System.out.println(timeStamp);
-            imageFileName = "IMG_" + timeStamp;
-            System.out.println(imageFileName);
-
-            //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yy, hh:mm:ss a", Locale.getDefault());
-            Date c = Calendar.getInstance().getTime();
-            String dd = simpleDateFormat.format(c);
-            System.out.println(dd);
-            String timeLatLng = "Time: " + dd + "\n" + "Latitude: " + latitude + "\n" + "Longitude: " + longitude;
-            address = timeLatLng + "\n"+ "Address: " + address;
-            System.out.println(address);
-
-            File imgFile = new  File(currentPhotoPath);
-            if(imgFile.exists()) {
-                //cameraImage.setImageURI(Uri.fromFile(imgFile));
-                System.out.println(currentPhotoPath);
-
-                bitmap = BitmapFactory.decodeFile(currentPhotoPath);
-                try {
-                    bitmap = modifyOrientation(bitmap, currentPhotoPath);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                Resources resources = getResources();
-                float scale = resources.getDisplayMetrics().density;
-                //Bitmap bitmap = BitmapFactory.decodeResource(resources, gResId);
-
-                android.graphics.Bitmap.Config bitmapConfig = bitmap.getConfig();
-                // set default bitmap config if none
-                if(bitmapConfig == null) {
-                    bitmapConfig = android.graphics.Bitmap.Config.ARGB_8888;
-                }
-                // resource bitmaps are imutable,
-                // so we need to convert it to mutable one
-                bitmap = bitmap.copy(bitmapConfig, true);
-
-                Canvas canvas = new Canvas(bitmap);
-
-                // new antialiased Paint
-                TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG);
-                // text color - #3D3D3D
-                paint.setColor(Color.WHITE);
-                // text size in pixels
-                paint.setTextSize((int) (36 * scale));
-                // text shadow
-                paint.setShadowLayer(4f, 0f, 2f, Color.BLACK);
-                paint.setFakeBoldText(true);
-
-                // set text width to canvas width minus 16dp padding
-                int textWidth = canvas.getWidth() - (int) (16 * scale);
-
-                // init StaticLayout for text
-
-                StaticLayout textLayout = new StaticLayout(
-                        address, paint, textWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false);
-
-                // get height of multiline text
-                int textHeight = textLayout.getHeight();
-
-                // get position of text's top left corner
-                float x = (bitmap.getWidth() - textWidth)/2;
-                float y = (bitmap.getHeight() - textHeight)/2;
-
-
-                // draw text to the Canvas center
-                int yyyy = bitmap.getHeight() - textHeight - 16;
-                canvas.save();
-                canvas.translate(5, yyyy);
-                textLayout.draw(canvas);
-                canvas.restore();
-
-                //cameraImage.setImageBitmap(bitmap);
-
-                // ekhan theke purata jabe imagedialogue e
-//                File deletefile = new File(currentPhotoPath);
-//                boolean deleted = deletefile.delete();
-//                if (deleted) {
-//                    System.out.println("deleted");
-//                }
-
-
-                // Saving Photo
-
-//                FileOutputStream fileOutputStream = null;
-//                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.getDefault()).format(new Date());
-//                System.out.println(timeStamp);
-//                String imageFileName = "IMGLC_" + timeStamp +".jpg";
-//                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera/" + imageFileName);
-//                try {
-//                    file.createNewFile();
-//                    currentPhotoPath = file.getAbsolutePath();
-//                    fileOutputStream = new FileOutputStream(file);
+//    public void getAddress(double lat, double lng) {
+//        Geocoder geocoder = new Geocoder(MapsActivityForMulti.this, Locale.getDefault());
+//        try {
+//            List<Address> addresses = geocoder.getFromLocation(lat, lng, 1);
+//            Address obj = addresses.get(0);
+//            String adds = obj.getAddressLine(0);
+//            String add = "Address from GeoCODE: ";
+//            add = add + "\n" + obj.getCountryName();
+//            add = add + "\n" + obj.getCountryCode();
+//            add = add + "\n" + obj.getAdminArea();
+//            add = add + "\n" + obj.getPostalCode();
+//            add = add + "\n" + obj.getSubAdminArea();
+//            add = add + "\n" + obj.getLocality();
+//            add = add + "\n" + obj.getSubThoroughfare();
 //
-//                } catch (Exception e) {
+//            Log.v("IGA", "Address: " + add);
+//            Log.v("NEW ADD", "Address: " + adds);
+//            address = adds;
+//            // Toast.makeText(this, "Address=>" + add,
+//            // Toast.LENGTH_SHORT).show();
+//
+//            // TennisAppActivity.showDialog(add);
+//        } catch (IOException e) {
+//            // TODO Auto-generated catch block
+//            e.printStackTrace();
+//            address = "Address Not Found";
+////            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+//        }
+//    }
+//
+//    @Override
+//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+//        super.onActivityResult(requestCode, resultCode, data);
+//
+//        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+//
+//            double latitude = cameraLatLng[0].latitude;
+//            double longitude = cameraLatLng[0].longitude;
+//
+//            // \n is for new line
+//            //Toast.makeText(getApplicationContext(), "Your Location is - \nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
+//
+//            getAddress(latitude, longitude);
+//
+//            // Getting ImageFile Name
+//            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.getDefault()).format(new Date());
+//            System.out.println(timeStamp);
+//            imageFileName = "IMG_" + timeStamp;
+//            System.out.println(imageFileName);
+//
+//            //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+//            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yy, hh:mm:ss a", Locale.getDefault());
+//            Date c = Calendar.getInstance().getTime();
+//            String dd = simpleDateFormat.format(c);
+//            System.out.println(dd);
+//            String timeLatLng = "Time: " + dd + "\n" + "Latitude: " + latitude + "\n" + "Longitude: " + longitude;
+//            address = timeLatLng + "\n"+ "Address: " + address;
+//            System.out.println(address);
+//
+//            File imgFile = new  File(currentPhotoPath);
+//            if(imgFile.exists()) {
+//                //cameraImage.setImageURI(Uri.fromFile(imgFile));
+//                System.out.println(currentPhotoPath);
+//
+//                bitmap = BitmapFactory.decodeFile(currentPhotoPath);
+//                try {
+//                    bitmap = modifyOrientation(bitmap, currentPhotoPath);
+//                } catch (IOException e) {
 //                    e.printStackTrace();
 //                }
-//                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream);
-//                try {
-//                    fileOutputStream.flush();
-//                } catch (Exception e) {
-//                    e.printStackTrace();
+//                Resources resources = getResources();
+//                float scale = resources.getDisplayMetrics().density;
+//                //Bitmap bitmap = BitmapFactory.decodeResource(resources, gResId);
+//
+//                android.graphics.Bitmap.Config bitmapConfig = bitmap.getConfig();
+//                // set default bitmap config if none
+//                if(bitmapConfig == null) {
+//                    bitmapConfig = android.graphics.Bitmap.Config.ARGB_8888;
 //                }
-//                try {
-//                    fileOutputStream.close();
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-
-//                Toast.makeText(getApplicationContext(), "Photo is saved", Toast.LENGTH_SHORT).show();
-//                galleryAddPic();
+//                // resource bitmaps are imutable,
+//                // so we need to convert it to mutable one
+//                bitmap = bitmap.copy(bitmapConfig, true);
 //
-//                String imaaa = file.getAbsolutePath();
+//                Canvas canvas = new Canvas(bitmap);
 //
-//                //Writes Exif Information to the Image
-//                try {
-//                    ExifInterface exif = new ExifInterface(imaaa);
-//                    Log.w("Location", String.valueOf(targetLocation));
+//                // new antialiased Paint
+//                TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG);
+//                // text color - #3D3D3D
+//                paint.setColor(Color.WHITE);
+//                // text size in pixels
+//                paint.setTextSize((int) (36 * scale));
+//                // text shadow
+//                paint.setShadowLayer(4f, 0f, 2f, Color.BLACK);
+//                paint.setFakeBoldText(true);
 //
-//                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE, convert(targetLocation.getLatitude()));
-//                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, latitudeRef(targetLocation.getLatitude()));
-//                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE, convert(targetLocation.getLongitude()));
-//                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, longitudeRef(targetLocation.getLongitude()));
+//                // set text width to canvas width minus 16dp padding
+//                int textWidth = canvas.getWidth() - (int) (16 * scale);
 //
-//                    exif.saveAttributes();
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-
-//                scanFile(getApplicationContext(),currentPhotoPath, null);
-
-                ImageDialogue imageDialogue = new ImageDialogue();
-                imageDialogue.show(getSupportFragmentManager(),"Image");
-            }
-        }
-    }
+//                // init StaticLayout for text
+//
+//                StaticLayout textLayout = new StaticLayout(
+//                        address, paint, textWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false);
+//
+//                // get height of multiline text
+//                int textHeight = textLayout.getHeight();
+//
+//                // get position of text's top left corner
+//                float x = (bitmap.getWidth() - textWidth)/2;
+//                float y = (bitmap.getHeight() - textHeight)/2;
+//
+//
+//                // draw text to the Canvas center
+//                int yyyy = bitmap.getHeight() - textHeight - 16;
+//                canvas.save();
+//                canvas.translate(5, yyyy);
+//                textLayout.draw(canvas);
+//                canvas.restore();
+//
+//                //cameraImage.setImageBitmap(bitmap);
+//
+//                // ekhan theke purata jabe imagedialogue e
+////                File deletefile = new File(currentPhotoPath);
+////                boolean deleted = deletefile.delete();
+////                if (deleted) {
+////                    System.out.println("deleted");
+////                }
+//
+//
+//                // Saving Photo
+//
+////                FileOutputStream fileOutputStream = null;
+////                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.getDefault()).format(new Date());
+////                System.out.println(timeStamp);
+////                String imageFileName = "IMGLC_" + timeStamp +".jpg";
+////                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera/" + imageFileName);
+////                try {
+////                    file.createNewFile();
+////                    currentPhotoPath = file.getAbsolutePath();
+////                    fileOutputStream = new FileOutputStream(file);
+////
+////                } catch (Exception e) {
+////                    e.printStackTrace();
+////                }
+////                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream);
+////                try {
+////                    fileOutputStream.flush();
+////                } catch (Exception e) {
+////                    e.printStackTrace();
+////                }
+////                try {
+////                    fileOutputStream.close();
+////                } catch (Exception e) {
+////                    e.printStackTrace();
+////                }
+//
+////                Toast.makeText(getApplicationContext(), "Photo is saved", Toast.LENGTH_SHORT).show();
+////                galleryAddPic();
+////
+////                String imaaa = file.getAbsolutePath();
+////
+////                //Writes Exif Information to the Image
+////                try {
+////                    ExifInterface exif = new ExifInterface(imaaa);
+////                    Log.w("Location", String.valueOf(targetLocation));
+////
+////                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE, convert(targetLocation.getLatitude()));
+////                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, latitudeRef(targetLocation.getLatitude()));
+////                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE, convert(targetLocation.getLongitude()));
+////                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, longitudeRef(targetLocation.getLongitude()));
+////
+////                    exif.saveAttributes();
+////                } catch (Exception e) {
+////                    e.printStackTrace();
+////                }
+//
+////                scanFile(getApplicationContext(),currentPhotoPath, null);
+//
+//                ImageDialogue imageDialogue = new ImageDialogue();
+//                imageDialogue.show(getSupportFragmentManager(),"Image");
+//            }
+//        }
+//    }
 
     @Override
     public void onBackPressed() {

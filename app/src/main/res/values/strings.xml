@@ -3,4 +3,5 @@
     <string name="title_activity_maps">Map</string>
     <string name="title_activity_maps_create">Map</string>
     <string name="title_activity_maps_for_multi">Map</string>
+    <string name="version_control">Version 6.1</string>
 </resources>

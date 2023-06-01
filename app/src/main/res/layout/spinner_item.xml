@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center"
-    android:fontFamily="@font/roboto_bold"
+    android:fontFamily="@font/poppins_semibold"
     android:textColor="@color/white"
     android:padding="5dp"
     />

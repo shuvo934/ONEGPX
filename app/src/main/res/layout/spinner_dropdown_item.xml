@@ -6,5 +6,5 @@
     android:layout_height="?android:attr/listPreferredItemHeight"
     android:ellipsize="marquee"
     android:textColor="@color/teal_700"
-    android:fontFamily="@font/roboto_bold"
+    android:fontFamily="@font/poppins_semibold"
     android:singleLine="true" />

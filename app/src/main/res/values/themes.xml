@@ -15,4 +15,7 @@
         <item name="android:navigationBarColor">@color/back_color</item>
         <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
+    <style name="TextInputLayoutHintText" parent="TextAppearance.Design.Hint">
+        <item name="android:fontFamily">@font/open_sans_bold</item>
+    </style>
 </resources>

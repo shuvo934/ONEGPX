@@ -69,7 +69,8 @@
                     app:boxBackgroundColor="@color/white"
                     app:boxBackgroundMode="filled"
                     app:boxStrokeWidth="0dp"
-                    android:hint="Search Only Zilla and Upazila">
+                    android:hint="Search Only Zilla and Upazila"
+                    app:hintTextAppearance="@style/TextInputLayoutHintText">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/search_bar_new_location_multi"
@@ -78,6 +79,8 @@
                         android:text=""
                         android:inputType="text"
                         android:imeOptions="actionDone"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/open_sans_bold"
                         android:textColor="@color/black"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -107,21 +110,22 @@
 
     </LinearLayout>
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:weightSum="1">
+        android:orientation="vertical">
 
         <LinearLayout
+            android:id="@+id/project_type_selection_layout"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
+            android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:layout_weight=".1"
             android:gravity="center"
-
-            android:layout_margin = "1dp"
-            android:orientation="horizontal" >
+            android:layout_margin="1dp"
+            android:orientation="horizontal"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true">
             <Button
                 android:id="@+id/instant_way"
                 android:layout_width="match_parent"
@@ -130,8 +134,9 @@
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
                 android:layout_weight="1"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:text="চিহ্নিত করুন / Mark here"
+                android:fontFamily="@font/open_sans_bold"
                 android:visibility="gone"/>
             <Button
                 android:id="@+id/waypoint_save_multi"
@@ -140,8 +145,9 @@
                 android:layout_margin = "2dp"
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:layout_weight="1"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="স্থাপনা/WayPoint"/>
             <Button
                 android:id="@+id/auto_line_multi"
@@ -149,9 +155,10 @@
                 android:layout_height="match_parent"
                 android:layout_margin = "2dp"
                 android:layout_weight="1"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="রাস্তা/Track (Automatic)"
                 />
             <Button
@@ -160,20 +167,24 @@
                 android:layout_height="match_parent"
                 android:layout_margin = "2dp"
                 android:gravity="center"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:layout_weight="1"
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="রাস্তা/Track (Manual)"/>
 
         </LinearLayout>
         <LinearLayout
+            android:id="@+id/map_clear_button_layout"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
+            android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_weight=".1"
             android:weightSum="2"
-            android:layout_margin="2dp">
+            android:layout_margin="2dp"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_below="@+id/project_type_selection_layout">
             <Button
                 android:id="@+id/last_point_remove_multi"
                 android:layout_width="match_parent"
@@ -182,8 +193,9 @@
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
                 android:layout_weight="1"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:visibility="gone"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="শেষ বিন্দুটি মুছে ফেলুন/Remove last Point"/>
             <Button
                 android:id="@+id/map_clear_multi"
@@ -191,16 +203,20 @@
                 android:layout_height="match_parent"
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:layout_weight="1"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="ম্যাপ পরিষ্কার করুন / clear map"
                 android:layout_margin="1dp"/>
         </LinearLayout>
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_weight=".7"
-            android:layout_height="0dp"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_below="@+id/map_clear_button_layout"
+            android:layout_above="@+id/back_button_layout">
 
 
             <fragment
@@ -233,6 +249,8 @@
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
                 android:visibility="gone"
+                android:textSize="12sp"
+                android:fontFamily="@font/open_sans_bold"
                 android:layout_marginBottom="5dp"/>
 
             <Button
@@ -244,8 +262,10 @@
                 android:layout_marginBottom="5dp"
                 android:textColor="@color/white"
                 android:visibility="gone"
+                android:textSize="12sp"
                 android:background="@drawable/quit_button_design"
                 android:layout_toEndOf="@+id/save_gpx_file"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="Share This File" />
 
 
@@ -253,10 +273,13 @@
         </RelativeLayout>
 
         <LinearLayout
+            android:id="@+id/back_button_layout"
             android:layout_width="match_parent"
-            android:layout_weight=".1"
             android:layout_margin="1dp"
-            android:layout_height="0dp">
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true">
             <Button
                 android:id="@+id/go_back_multi"
                 android:layout_width="match_parent"
@@ -265,11 +288,12 @@
                 android:textSize="13sp"
                 android:background="@drawable/quit_button_design"
                 android:textColor="@color/white"
+                android:fontFamily="@font/open_sans_bold"
                 android:text="আগের পেইজ এ যান / go back"/>
         </LinearLayout>
 
 
-    </LinearLayout>
+    </RelativeLayout>
 
 
 

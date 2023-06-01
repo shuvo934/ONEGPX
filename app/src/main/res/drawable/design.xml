@@ -18,7 +18,7 @@
     <!--        android:width="1dip"-->
     <!--        android:color="#b2bec3" />-->
 
-    <corners
-        android:topLeftRadius="350dp"
-        android:topRightRadius="350dp"/>
+<!--    <corners-->
+<!--        android:topLeftRadius="350dp"-->
+<!--        android:topRightRadius="350dp"/>-->
 </shape>
