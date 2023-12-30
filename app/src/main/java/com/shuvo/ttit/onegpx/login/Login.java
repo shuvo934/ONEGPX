@@ -1,5 +1,8 @@
 package com.shuvo.ttit.onegpx.login;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -25,7 +28,14 @@ import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.Task;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.appupdate.AppUpdateOptions;
+import com.google.android.play.core.install.model.UpdateAvailability;
 import com.shuvo.ttit.onegpx.MapsMenu.MapsActivity;
 import com.shuvo.ttit.onegpx.R;
 import com.shuvo.ttit.onegpx.progressbar.WaitProgress;
@@ -49,6 +59,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import static com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE;
 import static com.shuvo.ttit.onegpx.OracleConnection.createConnection;
 
 public class Login extends AppCompatActivity {
@@ -107,6 +118,23 @@ public class Login extends AppCompatActivity {
     public static int WayPointDeactivate = 0;
 
     String emp_id = "";
+    AppUpdateManager appUpdateManager;
+
+    ActivityResultLauncher<IntentSenderRequest> activityResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK) {
+
+                            MaterialAlertDialogBuilder alertDialogBuilder = new MaterialAlertDialogBuilder(Login.this)
+                                    .setTitle("Update Failed!")
+                                    .setMessage("Failed to update the app. Please retry again.")
+                                    .setIcon(R.drawable.activity_icon3)
+                                    .setPositiveButton("Retry", (dialog, which) -> getAppUpdate())
+                                    .setNegativeButton("Cancel", (dialog, which) -> finish());
+                            AlertDialog alertDialog = alertDialogBuilder.create();
+                            alertDialog.show();
+                        }
+                    });
 
     @SuppressLint("HardwareIds")
     @Override
@@ -114,6 +142,7 @@ public class Login extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        appUpdateManager = AppUpdateManagerFactory.create(Login.this);
         userInfoLists = new ArrayList<>();
         userDesignations = new ArrayList<>();
         login_failed = findViewById(R.id.email_pass_miss);
@@ -233,6 +262,64 @@ public class Login extends AppCompatActivity {
 
             }
         });
+        getAppUpdate();
+    }
+
+    private void getAppUpdate() {
+        System.out.println("HELLO1");
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                    && appUpdateInfo.isUpdateTypeAllowed(IMMEDIATE))  {
+//                try {
+//                    appUpdateManager.startUpdateFlowForResult(appUpdateInfo,
+//                            (IntentSenderForResultStarter) activityResultLauncher,
+//                            AppUpdateOptions
+//                                    .newBuilder(IMMEDIATE)
+//                                    .build(),
+//                            10101);
+//                    appUpdateManager.startUpdateFlowForResult(appUpdateInfo,
+//                            Dashboard.this,AppUpdateOptions.newBuilder(IMMEDIATE).build(),
+//                            101010);
+//                } catch (IntentSender.SendIntentException e) {
+//                    e.printStackTrace();
+//                }
+                appUpdateManager.startUpdateFlowForResult(appUpdateInfo,
+                        activityResultLauncher, AppUpdateOptions
+                                .newBuilder(IMMEDIATE)
+                                .build());
+            }
+            else {
+                System.out.println("No update available");
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        appUpdateManager
+                .getAppUpdateInfo()
+                .addOnSuccessListener(
+                        appUpdateInfo -> {
+                            if (appUpdateInfo.updateAvailability()
+                                    == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                                // If an in-app update is already running, resume the update.
+//                                try {
+//                                    appUpdateManager.startUpdateFlowForResult(
+//                                            appUpdateInfo,
+//                                            this,
+//                                            AppUpdateOptions.defaultOptions(IMMEDIATE),
+//                                            10101);
+//                                } catch (IntentSender.SendIntentException e) {
+//                                    e.printStackTrace();
+//                                }
+                                appUpdateManager.startUpdateFlowForResult(appUpdateInfo,
+                                        activityResultLauncher,AppUpdateOptions
+                                                .newBuilder(IMMEDIATE)
+                                                .build());
+                            }
+                        });
     }
 
     @Override

@@ -173,7 +173,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private void enableFileAccess() {
 
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            int REQUEST_CODE_PERMISSION_STORAGE = 100;
+            String[] permission = {
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+            };
+
+            for (String str : permission) {
+                if (this.checkSelfPermission(str) != PackageManager.PERMISSION_GRANTED) {
+                    this.requestPermissions(permission, REQUEST_CODE_PERMISSION_STORAGE);
+                    return;
+                }
+            }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                enableGPS();
+            }
+        }
+        else {
             int REQUEST_CODE_PERMISSION_STORAGE = 100;
             String[] permission = {
                     Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -185,16 +203,37 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     this.requestPermissions(permission, REQUEST_CODE_PERMISSION_STORAGE);
                     return;
                 }
-
             }
 
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 enableGPS();
             }
-
-
         }
     }
+//    private void enableFileAccess() {
+//
+//        if (Build.VERSION.SDK_INT >= 23) {
+//            int REQUEST_CODE_PERMISSION_STORAGE = 100;
+//            String[] permission = {
+//                    Manifest.permission.READ_EXTERNAL_STORAGE,
+//                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+//            };
+//
+//            for (String str : permission) {
+//                if (this.checkSelfPermission(str) != PackageManager.PERMISSION_GRANTED) {
+//                    this.requestPermissions(permission, REQUEST_CODE_PERMISSION_STORAGE);
+//                    return;
+//                }
+//
+//            }
+//
+//            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+//                enableGPS();
+//            }
+//
+//
+//        }
+//    }
 
     private void enableUserLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
