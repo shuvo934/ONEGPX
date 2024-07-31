@@ -39,9 +39,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private TextView info;
     private Button quit;
-    private int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
+    private final int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
     private GoogleApiClient googleApiClient;
-    private Handler mHandler = new Handler();
+    private final Handler mHandler = new Handler();
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
@@ -173,7 +173,28 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private void enableFileAccess() {
 
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            int REQUEST_CODE_PERMISSION_STORAGE = 100;
+            String[] permission = {
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+            };
+
+            for (String str : permission) {
+                if (this.checkSelfPermission(str) != PackageManager.PERMISSION_GRANTED) {
+                    this.requestPermissions(permission, REQUEST_CODE_PERMISSION_STORAGE);
+                    return;
+                }
+            }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+                    && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+                    && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                enableGPS();
+            }
+        }
+        else if (Build.VERSION.SDK_INT == 33) {
             int REQUEST_CODE_PERMISSION_STORAGE = 100;
             String[] permission = {
                     Manifest.permission.READ_MEDIA_IMAGES,
