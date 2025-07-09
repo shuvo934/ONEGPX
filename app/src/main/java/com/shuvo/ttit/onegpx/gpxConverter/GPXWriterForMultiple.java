@@ -1,8 +1,11 @@
 package com.shuvo.ttit.onegpx.gpxConverter;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -16,7 +19,7 @@ public class GPXWriterForMultiple {
             + " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
             + " xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">";
     private static final SimpleDateFormat POINT_DATE_FORMATTER = new SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault());
+            "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
 
     public static void writeGpxFile(String trackName,
                                     ArrayList<String> trkpt, File target) throws IOException {
@@ -49,6 +52,19 @@ public class GPXWriterForMultiple {
             e.printStackTrace();
         }
 
+    }
+
+    public static void new_writeGpxFile(String trackName, ArrayList<String> trkpt, OutputStream outputStream) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
+
+        writer.write(XML_HEADER +"\n");
+        writer.write(TAG_GPX + "\n");
+        for (String line : trkpt) {
+            writer.write(line);
+        }
+        writer.write("</gpx>");
+        writer.flush();
+        writer.close();
     }
 
     private static void writeTrackPoints(String trackName, FileWriter fw,

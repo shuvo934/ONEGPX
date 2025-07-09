@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -75,13 +76,12 @@ public class GPXFileDecoder {
         return list;
     }
 
-    public static String decoder(File file) {
+    public static String decoder(InputStream inputStream) {
         String desc = "";
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         try {
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-            FileInputStream fileInputStream = new FileInputStream(file);
-            Document document = documentBuilder.parse(fileInputStream);
+            Document document = documentBuilder.parse(inputStream);
             Element elementRoot = document.getDocumentElement();
 
             NodeList nameww = elementRoot.getElementsByTagName("desc");
@@ -113,39 +113,31 @@ public class GPXFileDecoder {
 
             }
 
-            fileInputStream.close();
+            inputStream.close();
 
-        } catch (ParserConfigurationException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (SAXException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
+        if (desc.endsWith("\n")) {
+            desc = desc.substring(0, desc.length() - 1);
+        }
         return desc;
     }
 
-    public static ArrayList<ArrrayFile> multiLine(File file){
-        ArrayList<ArrrayFile> list = new ArrayList<ArrrayFile>();
+    public static ArrayList<ArrrayFile> multiLine(InputStream inputStream){
+        ArrayList<ArrrayFile> list = new ArrayList<>();
         String lens = "";
 
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         try {
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-            FileInputStream fileInputStream = new FileInputStream(file);
-            Document document = documentBuilder.parse(fileInputStream);
+            Document document = documentBuilder.parse(inputStream);
             Element elementRoot = document.getDocumentElement();
 
             NodeList nodelist_trkpt = elementRoot.getElementsByTagName("trk");
 
-            for(int i = 0; i < nodelist_trkpt.getLength(); i++){
+            for (int i = 0; i < nodelist_trkpt.getLength(); i++){
                 ArrayList<Location> lllList = new ArrayList<Location>();
 
                 Node node = nodelist_trkpt.item(i);
@@ -228,40 +220,27 @@ public class GPXFileDecoder {
                 list.add(new ArrrayFile(lllList, "File" + i, lens));
             }
 
+            inputStream.close();
 
-
-            fileInputStream.close();
-
-        } catch (ParserConfigurationException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (SAXException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         return list;
     }
 
-    public static ArrayList<Location> decodeWPT(File file){
-        ArrayList<Location> list = new ArrayList<Location>();
+    public static ArrayList<Location> decodeWPT(InputStream inputStream) {
+        ArrayList<Location> list = new ArrayList<>();
 
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         try {
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-            FileInputStream fileInputStream = new FileInputStream(file);
-            Document document = documentBuilder.parse(fileInputStream);
+            Document document = documentBuilder.parse(inputStream);
             Element elementRoot = document.getDocumentElement();
 
             NodeList nodelist_trkpt = elementRoot.getElementsByTagName("wpt");
 
-            for(int i = 0; i < nodelist_trkpt.getLength(); i++){
+            for (int i = 0; i < nodelist_trkpt.getLength(); i++) {
 
                 Node node = nodelist_trkpt.item(i);
                 NamedNodeMap attributes = node.getAttributes();
@@ -281,21 +260,9 @@ public class GPXFileDecoder {
 
             }
 
+            inputStream.close();
 
-
-            fileInputStream.close();
-
-        } catch (ParserConfigurationException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (SAXException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

@@ -22,16 +22,16 @@ public class FileUtils {
 
     private static final String LOG_TAG = "FileUtils";
 
-    private static Uri contentUri = null;
+//    private static Uri contentUri = null;
 
     @SuppressLint("NewApi")
     public static String getPath(final Context context, final Uri uri) {
         // Check here to KITKAT or new version
-        final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+        final boolean isKitKat = true;
         String selection = null;
         String[] selectionArgs = null;
         // DocumentProvider
-        if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
+        if (DocumentsContract.isDocumentUri(context, uri)) {
             // ExternalStorageProvider
             if (isExternalStorageDocument(uri)) {
                 final String docId = DocumentsContract.getDocumentId(uri);
@@ -39,7 +39,7 @@ public class FileUtils {
                 final String type = split[0];
 
                 String fullPath = getPathFromExtSD(split);
-                if (fullPath != "") {
+                if (!fullPath.isEmpty()) {
                     return fullPath;
                 } else {
                     return null;
@@ -47,7 +47,7 @@ public class FileUtils {
             }
             // DownloadsProvider
             else if (isDownloadsDocument(uri)) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                {
                     final String id;
                     Cursor cursor = null;
                     try {
@@ -86,22 +86,6 @@ public class FileUtils {
                                 return uri.getPath().replaceFirst("^/document/raw:", "").replaceFirst("^raw:", "");
                             }
                         }
-                    }
-                } else {
-                    final String id = DocumentsContract.getDocumentId(uri);
-                    final boolean isOreo = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
-                    if (id.startsWith("raw:")) {
-                        return id.replaceFirst("raw:", "");
-                    }
-                    try {
-                        contentUri = ContentUris.withAppendedId(
-                                Uri.parse("content://downloads/public_downloads"), Long.valueOf(id));
-
-                    } catch (NumberFormatException e) {
-                        e.printStackTrace();
-                    }
-                    if (contentUri != null) {
-                        return getDataColumn(context, contentUri, null, null);
                     }
                 }
             }
@@ -327,5 +311,46 @@ public class FileUtils {
     private static boolean isGoogleDriveUri(Uri uri) {
         return "com.google.android.apps.docs.storage".equals(uri.getAuthority()) //
                 || "com.google.android.apps.docs.storage.legacy".equals(uri.getAuthority());
+    }
+
+    public static String copyUriToCache(Context context, Uri uri) {
+        try {
+            ContentResolver resolver = context.getContentResolver();
+            String name = getFileName(resolver, uri);
+            if (name == null) {
+                name = "tempfile";
+            }
+            File file = new File(context.getCacheDir(), name);
+
+            try (InputStream in = resolver.openInputStream(uri);
+                 FileOutputStream out = new FileOutputStream(file)) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, len);
+                }
+            }
+            return file.getAbsolutePath();
+        } catch (Exception e) {
+            Log.e("FileCopy", "Failed to copy", e);
+            return null;
+        }
+    }
+
+    private static String getFileName(ContentResolver resolver, Uri uri) {
+        Cursor cursor = resolver.query(uri, null, null, null, null);
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex != -1) {
+                        return cursor.getString(nameIndex);
+                    }
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        return null;
     }
 }

@@ -1,58 +1,52 @@
 package com.shuvo.ttit.onegpx.createMenu;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
-import androidx.fragment.app.FragmentActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.Paint;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
-import android.media.ExifInterface;
+import androidx.exifinterface.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.provider.MediaStore;
-import android.text.Layout;
-import android.text.StaticLayout;
-import android.text.TextPaint;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -60,6 +54,7 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -70,7 +65,6 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -83,10 +77,12 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.shuvo.ttit.onegpx.gpxConverter.DistanceCalculator.CalculationByDistance;
 import static com.shuvo.ttit.onegpx.login.Login.CameraDeactivate;
@@ -98,7 +94,6 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
     private GoogleMap mMap;
 
     public static String currentPhotoPath;
-    static final int REQUEST_IMAGE_CAPTURE = 1;
 
     FusedLocationProviderClient fusedLocationProviderClient;
     FusedLocationProviderClient fusedLocationProviderClientCamera;
@@ -124,7 +119,6 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
     private Boolean isWayStart = false;
     private Boolean fromMap = false;
     private Boolean fromButton = false;
-    String address = "";
 
     public static Bitmap bitmap = null;
     public static String imageFileName = "";
@@ -149,13 +143,26 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 
     final LatLng[] cameraLatLng = {null};
 
+    Logger logger = Logger.getLogger(MapsActivityForMulti.class.getName());
+    
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps_for_multi);
+        View navScrim = findViewById(R.id.nav_bar_map_multi);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.map_multi_root), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
+            ViewGroup.LayoutParams lp = navScrim.getLayoutParams();
+            lp.height = systemBars.bottom;
+            navScrim.setLayoutParams(lp);
+            return insets;
+        });
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map3);
+        assert mapFragment != null;
         mapFragment.getMapAsync(this);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -211,58 +218,71 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
         trk = new ArrayList<>();
 
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-//        locationRequest.setInterval(5);
-        locationRequest.setInterval(5000);
-        locationRequest.setFastestInterval(1000);
+        locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                .setWaitForAccurateLocation(false)
+                .setMinUpdateIntervalMillis(1000)
+                .setMaxUpdateDelayMillis(2000)
+                .build();
 
-        locationRequestCamera = LocationRequest.create();
-        locationRequestCamera.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequestCamera.setInterval(5000);
-        locationRequestCamera.setFastestInterval(1000);
+        locationRequestCamera = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                .setWaitForAccurateLocation(false)
+                .setMinUpdateIntervalMillis(1000)
+                .setMaxUpdateDelayMillis(2000)
+                .build();
 
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
         StrictMode.setVmPolicy(builder.build());
 
-        List<String> categories = new ArrayList<String>();
+        List<String> categories = new ArrayList<>();
         categories.add("NORMAL");
         categories.add("SATELLITE");
         categories.add("TERRAIN");
         categories.add("HYBRID");
 
-        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(getApplicationContext(), R.layout.spinner_item, categories);
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(getApplicationContext(), R.layout.spinner_item, categories);
 
         spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
 
         selection.setAdapter(spinnerAdapter);
 
-        search.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                search.setText("");
-                searchLayout.setHint("Zilla / Upazila");
-                return false;
-            }
+        search.setOnTouchListener((v, event) -> {
+            search.setText("");
+            searchLayout.setHint("Zilla / Upazila");
+            return false;
         });
 
-        search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEARCH ||
-                        actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT || event != null && event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_ENTER &&
-                        event.getKeyCode() == KeyEvent.KEYCODE_NAVIGATE_NEXT) {
-                    if (event == null || !event.isShiftPressed()) {
-                        // the user is done typing.
-                        Log.i("Let see", "Come here");
-                        closeKeyBoard();
-
-
-
-                        return false; // consume.
-                    }
+        search.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT || event != null && event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_ENTER &&
+                    event.getKeyCode() == KeyEvent.KEYCODE_NAVIGATE_NEXT) {
+                if (event == null || !event.isShiftPressed()) {
+                    // the user is done typing.
+                    Log.i("Let see", "Come here");
+                    closeKeyBoard();
+                    return false; // consume.
                 }
-                return false;
+            }
+            return false;
+        });
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivityForMulti.this);
+                builder.setTitle("পিছনে যান/GO BACK")
+                        .setMessage("আপনি কি আগের পেইজ এ যেতে চান?/Are you sure want to go back?")
+                        .setPositiveButton("হ্যাঁ/YES", (dialog, which) -> {
+                            fusedLocationProviderClientCamera.removeLocationUpdates(locationCallbackCamera);
+                            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+                            finish();
+                        })
+                        .setNegativeButton("না/NO", (dialog, which) -> {
+
+                        });
+                AlertDialog alert = builder.create();
+                alert.setCanceledOnTouchOutside(false);
+                alert.setCancelable(false);
+                alert.show();
             }
         });
     }
@@ -276,15 +296,6 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
         }
     }
 
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -347,56 +358,50 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
             }
         });
 
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String location = null;
+        button.setOnClickListener(v -> {
+            String location;
 
-                location = search.getText().toString();
-                Log.i("Hobe ", location);
+            location = Objects.requireNonNull(search.getText()).toString();
+            Log.i("Hobe ", location);
 
-                List<Address> addressList = null;
+            List<Address> addressList;
 
-                if (!location.isEmpty()) {
-                    Log.i("Hobe na  ", "hobe dekhi");
-                    Geocoder geocoder = new Geocoder(MapsActivityForMulti.this);
-                    try {
-                        addressList = geocoder.getFromLocationName(location, 1);
-                        System.out.println(addressList);
+            if (!location.isEmpty()) {
+                Log.i("Hobe na  ", "hobe dekhi");
+                Geocoder geocoder = new Geocoder(MapsActivityForMulti.this);
+                try {
+                    addressList = geocoder.getFromLocationName(location, 1);
+                    System.out.println(addressList);
 
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.hideSoftInputFromWindow(button.getWindowToken(), 0);
-                        Toast.makeText(getApplicationContext(), "Please Check your Internet Connection", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    if (addressList.size() == 0) {
-                        Toast.makeText(getApplicationContext(), "Location Not Found", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Address address = addressList.get(0);
-                        LatLng latLng = new LatLng(address.getLatitude(), address.getLongitude());
-                        //mMap.addMarker(new MarkerOptions().position(latLng).title("Marker"));
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
-                    }
+                } catch (IOException e) {
+                    logger.log(Level.WARNING,e.getMessage(),e);
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(button.getWindowToken(), 0);
+                    Toast.makeText(getApplicationContext(), "Please Check your Internet Connection", Toast.LENGTH_SHORT).show();
+                    return;
                 }
-                if (search.isFocused()) {
-                    search.clearFocus();
+
+                if (addressList.isEmpty()) {
+                    Toast.makeText(getApplicationContext(), "Location Not Found", Toast.LENGTH_SHORT).show();
+                } else {
+                    Address address = addressList.get(0);
+                    LatLng latLng = new LatLng(address.getLatitude(), address.getLongitude());
+                    //mMap.addMarker(new MarkerOptions().position(latLng).title("Marker"));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
                 }
-                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.hideSoftInputFromWindow(button.getWindowToken(), 0);
-
-
             }
+            if (search.isFocused()) {
+                search.clearFocus();
+            }
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(button.getWindowToken(), 0);
+
+
         });
 
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
-                }
                 for (Location location : locationResult.getLocations()) {
                     if (isWayStart) {
                         instantWayLatLng[0] = new LatLng(location.getLatitude(),location.getLongitude());
@@ -436,7 +441,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
                                 mp.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
                                 mp.anchor((float) 0.5, (float) 0.5);
                                 w[0] = w[0] + distance;
-                                mp.snippet(String.format("%.3f", w[0]) + " KM");
+                                mp.snippet(String.format(Locale.ENGLISH,"%.3f", w[0]) + " KM");
                                 mp.title("Road Point");
                                 mMap.addMarker(mp);
                                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 18));
@@ -451,482 +456,443 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
             }
         };
 
-        autoLine.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        autoLine.setOnClickListener(v -> {
 
-                if (lineStart.equals("0")) {
-                    shareMulti.setVisibility(View.GONE);
-                    drawLine.setVisibility(View.GONE);
-                    drawWayPoint.setVisibility(View.GONE);
-                    autoLine.setText("রাস্তা শুরু করুন / Start Track");
-                    autoGpxLatLng = new ArrayList<>();
-                    lineStart = "1";
-                    Toast.makeText(getApplicationContext(),"আরও ভাল পজিশন পেতে অনুগ্রহ করে ৫ থেকে ১০ সেকেন্ড অপেক্ষা করুন",Toast.LENGTH_SHORT).show();
-                    if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return;
-                    }
-                    fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-                } else if (!autoLineValue && lineStart.equals("1")) {
+            if (lineStart.equals("0")) {
+                shareMulti.setVisibility(View.GONE);
+                drawLine.setVisibility(View.GONE);
+                drawWayPoint.setVisibility(View.GONE);
+                String alt = "রাস্তা শুরু করুন / Start Track";
+                autoLine.setText(alt);
+                autoGpxLatLng = new ArrayList<>();
+                lineStart = "1";
+                Toast.makeText(getApplicationContext(),"আরও ভাল পজিশন পেতে অনুগ্রহ করে ৫ থেকে ১০ সেকেন্ড অপেক্ষা করুন",Toast.LENGTH_SHORT).show();
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+            } else if (!autoLineValue && lineStart.equals("1")) {
 
-                    if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return;
-                    }
-                    shareMulti.setVisibility(View.GONE);
-                    drawLine.setVisibility(View.GONE);
-                    drawWayPoint.setVisibility(View.GONE);
-                    autoGpxLatLng = new ArrayList<>();
-                    lineStart = "2";
-                    isStart = true;
-                    autoLine.setText("রাস্তা শেষ এবং সংরক্ষণ করুন / Stop and Save Track");
-                    autoLineValue = true;
-                    //fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-                    //locationManager.requestLocationUpdates(provider, 0, 0, locationListener);
-                    //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
-                } else if (lineStart.equals("2") && autoLineValue) {
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                shareMulti.setVisibility(View.GONE);
+                drawLine.setVisibility(View.GONE);
+                drawWayPoint.setVisibility(View.GONE);
+                autoGpxLatLng = new ArrayList<>();
+                lineStart = "2";
+                isStart = true;
+                String alt = "রাস্তা শেষ এবং সংরক্ষণ করুন / Stop and Save Track";
+                autoLine.setText(alt);
+                autoLineValue = true;
+                //fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+                //locationManager.requestLocationUpdates(provider, 0, 0, locationListener);
+                //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+            } else if (lineStart.equals("2") && autoLineValue) {
+                saveFile.setVisibility(View.VISIBLE);
+                drawLine.setVisibility(View.VISIBLE);
+                drawWayPoint.setVisibility(View.VISIBLE);
+                String alt = "রাস্তা/Track (Automatic)";
+                autoLine.setText(alt);
+                local[0] = 0;
+                autoLineValue = false;
+                lineStart = "0";
+                fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+                isStart = false;
+
+//                Log.i("Last Location", lastLatLongitude.toString());
+
+                LatLng lastLatlng = lastLatLongitude[0];
+                nop[0].add(lastLatlng);
+                mMap.addPolyline(nop[0]);
+                mp.position(lastLatlng);
+                autoGpxLatLng.add(lastLatlng);
+                mp.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
+                mp.anchor((float) 0.5, (float) 0.5);
+                Double distance = CalculationByDistance(autoPreLatlng[0], lastLatlng);
+                w[0] = w[0] + distance;
+                mp.snippet(String.format(Locale.ENGLISH,"%.3f", w[0]) + " KM");
+                mp.title("End Point");
+                mMap.addMarker(mp);
+
+                length_multi = (String.format(Locale.ENGLISH,"%.3f", w[0]) + " KM");
+
+                String start = "\t<trk>\n" +
+                        "\t\t<name>TTIT</name>\n";
+                String desc = "\t\t<desc>Length: " + length_multi + "</desc>\n";
+                String trkseg = "\t\t<trkseg>\n";
+                String trkpt = "";
+                for (int b = 0; b < autoGpxLatLng.size(); b++) {
+                    Log.i("Latlng :", autoGpxLatLng.get(b).toString());
+                    trkpt += "\t\t\t<trkpt lat=\"" + autoGpxLatLng.get(b).latitude + "\" lon=\"" + autoGpxLatLng.get(b).longitude + "\"></trkpt>\n";
+                }
+                String trksegFinish = "\t\t</trkseg>\n";
+                String finish = "\t</trk>\n";
+
+                trk.add(start + desc + trkseg + trkpt + trksegFinish + finish);
+
+
+                nop[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
+
+                //locationManager.removeUpdates(locationListener);
+                w[0] = 0.0;
+                autoGpxLatLng.clear();
+                autoGpxLatLng = new ArrayList<>();
+                local[0] = 0;
+                autoPreLatlng[0] = new LatLng(0, 0);
+                lastLatLongitude[0] = new LatLng(0,0);
+            }
+        });
+
+        mMap.setOnMapClickListener(latLng -> {
+            if (!lineValue) {
+                shareMulti.setVisibility(View.GONE);
+                removeLast.setVisibility(View.VISIBLE);
+                clearMap.setVisibility(View.VISIBLE);
+                if (i[0] == 0) {
+                    preLatLng[0] = latLng;
+                    Log.i("Hobe ", "hobe");
+
+                    options.position(latLng);
+                    options.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
+                    options.anchor((float) 0.5, (float) 0.5);
+                    options.snippet("0 KM");
+                    options.title("Starting Point");
+                    previousLatlng[0] = latLng;
+                    gpxLatLng.add(latLng);
+//                            mMap.addMarker(options).setTitle("Starting Point");
+                    mm[0] = mMap.addMarker(options);
+                    option[0].add(latLng);
+                    i[0]++;
+//                            mMap.addPolyline(option[0]);
+                    polylines[0] = mMap.addPolyline(option[0]);
+                } else {
+                    i[0]++;
+                    Log.i("Hobe ", "hobe");
+                    previousLatlng[0] = preLatLng[0];
+                    options.position(latLng);
+                    Double distance = CalculationByDistance(preLatLng[0], latLng);
+                    k[0] = distance;
+                    j[0] = j[0] + distance;
+                    options.snippet(String.format(Locale.ENGLISH,"%.3f", j[0]) + " KM");
+                    options.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
+                    options.anchor((float) 0.5, (float) 0.5);
+                    options.title("Road Point");
+                    gpxLatLng.add(latLng);
+//                            mMap.addMarker(options).setTitle("Road Point");
+                    mm[0] = mMap.addMarker(options);
+
+                    preLatLng[0] = latLng;
+                    option[0].add(latLng);
+//                            mMap.addPolyline(option[0]);
+                    polylines[0] = mMap.addPolyline(option[0]);
+
+                }
+
+            }
+            if (wayPointValue) {
+                removeLast.setVisibility(View.VISIBLE);
+                clearMap.setVisibility(View.VISIBLE);
+                preWayPoint[0] = latLng;
+                wp.position(latLng);
+                wp.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
+                wp.title("TTIT");
+                wpLatLng.add(latLng);
+                fromMap = true;
+                fromButton = false;
+                wwpp[0] = mMap.addMarker(wp);
+            } else {
+                Log.i("Hobe na", "Kissu");
+            }
+        });
+
+        instantWay.setOnClickListener(v -> {
+            if (wayPointValue && isWayStart) {
+                removeLast.setVisibility(View.VISIBLE);
+                clearMap.setVisibility(View.VISIBLE);
+                if (checkLatLng[0] != instantWayLatLng[0]) {
+                    System.out.println(instantWayLatLng[0]);
+                    checkLatLng[0] = instantWayLatLng[0];
+                    preWayPoint[0] = instantWayLatLng[0];
+                    wp.position(instantWayLatLng[0]);
+                    fromButton = true;
+                    fromMap = false;
+                    wp.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
+                    wp.title("TTIT");
+                    wpLatLng.add(instantWayLatLng[0]);
+                    wwpp[0] = mMap.addMarker(wp);
+                } else {
+//                        Toast.makeText(getApplicationContext(), "This Way Point matches the previous one",Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "এই জায়গাটি আগে আরেকবার নেয়া হয়েছে",Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        removeLast.setOnClickListener(v -> {
+            i[0]--;
+            if (mm[0] != null && polylines[0] != null && i[0] == 0) {
+                Log.i("Pai", "na");
+                mm[0].remove();
+                polylines[0].remove();
+                int index = gpxLatLng.lastIndexOf(previousLatlng[0]);
+                gpxLatLng.remove(index);
+                option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
+                removeLast.setVisibility(View.GONE);
+            }
+            if (mm[0] != null && polylines[0] != null && i[0] != 0) {
+                Log.i("Pai", "na");
+                int index = gpxLatLng.lastIndexOf(preLatLng[0]);
+                gpxLatLng.remove(index);
+                mm[0].remove();
+                polylines[0].remove();
+                option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
+                option[0].add(previousLatlng[0]);
+                preLatLng[0] = previousLatlng[0];
+                j[0] = j[0] - k[0];
+                removeLast.setVisibility(View.GONE);
+
+            }
+            if (wayPointValue && wwpp[0] != null && fromMap) {
+                wwpp[0].remove();
+                fromMap = false;
+                int index = wpLatLng.lastIndexOf(preWayPoint[0]);
+                wpLatLng.remove(index);
+                removeLast.setVisibility(View.GONE);
+            }
+            if (wayPointValue && wwpp[0] != null && fromButton) {
+                wwpp[0].remove();
+                fromButton = false;
+                checkLatLng[0] = new LatLng(0,0);
+                int index = wpLatLng.lastIndexOf(preWayPoint[0]);
+                wpLatLng.remove(index);
+                removeLast.setVisibility(View.GONE);
+            }
+        });
+
+        drawLine.setOnClickListener(v -> {
+            if (lineValue) {
+                shareMulti.setVisibility(View.GONE);
+                gpxLatLng = new ArrayList<>();
+                lineValue = false;
+                autoLine.setVisibility(View.GONE);
+                drawWayPoint.setVisibility(View.GONE);
+                String dlt = "রাস্তা সংরক্ষণ করুন / Save Track";
+                drawLine.setText(dlt);
+                option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
+
+            } else {
+                if (gpxLatLng.isEmpty()) {
+//                        Toast.makeText(getApplicationContext(), "Please Draw Line to Save", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "আগে রাস্তা চিহ্নিত করুন তারপরে সংরক্ষণ করুন", Toast.LENGTH_SHORT).show();
+
+                } else {
                     saveFile.setVisibility(View.VISIBLE);
-                    drawLine.setVisibility(View.VISIBLE);
+                    autoLine.setVisibility(View.VISIBLE);
                     drawWayPoint.setVisibility(View.VISIBLE);
-                    autoLine.setText("রাস্তা/Track (Automatic)");
-                    local[0] = 0;
-                    autoLineValue = false;
-                    lineStart = "0";
-                    fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-                    isStart = false;
-
-                    Log.i("Last Location", lastLatLongitude.toString());
-
-                    LatLng lastLatlng = lastLatLongitude[0];
-                    nop[0].add(lastLatlng);
-                    mMap.addPolyline(nop[0]);
-                    mp.position(lastLatlng);
-                    autoGpxLatLng.add(lastLatlng);
-                    mp.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
-                    mp.anchor((float) 0.5, (float) 0.5);
-                    Double distance = CalculationByDistance(autoPreLatlng[0], lastLatlng);
-                    w[0] = w[0] + distance;
-                    mp.snippet(String.format("%.3f", w[0]) + " KM");
-                    mp.title("End Point");
-                    mMap.addMarker(mp);
-
-                    length_multi = (String.format("%.3f", w[0]) + " KM");
+                    lineValue = true;
+                    removeLast.setVisibility(View.GONE);
+                    String dlt = "রাস্তা/Track (Manual)";
+                    drawLine.setText(dlt);
+                    length_multi = (String.format(Locale.ENGLISH,"%.3f", j[0]) + " KM");
+                    preLatLng[0] = new LatLng(0, 0);
 
                     String start = "\t<trk>\n" +
                             "\t\t<name>TTIT</name>\n";
                     String desc = "\t\t<desc>Length: " + length_multi + "</desc>\n";
                     String trkseg = "\t\t<trkseg>\n";
                     String trkpt = "";
-                    for (int b = 0; b < autoGpxLatLng.size(); b++) {
-                        Log.i("Latlng :", autoGpxLatLng.get(b).toString());
-                        trkpt += "\t\t\t<trkpt lat=\"" + autoGpxLatLng.get(b).latitude + "\" lon=\"" + autoGpxLatLng.get(b).longitude + "\"></trkpt>\n";
+                    for (int b = 0; b < gpxLatLng.size(); b++) {
+                        Log.i("Latlng :", gpxLatLng.get(b).toString());
+                        trkpt += "\t\t\t<trkpt lat=\"" + gpxLatLng.get(b).latitude + "\" lon=\"" + gpxLatLng.get(b).longitude + "\"></trkpt>\n";
                     }
                     String trksegFinish = "\t\t</trkseg>\n";
                     String finish = "\t</trk>\n";
 
                     trk.add(start + desc + trkseg + trkpt + trksegFinish + finish);
 
-
-                    nop[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
-
-                    //locationManager.removeUpdates(locationListener);
-                    w[0] = 0.0;
-                    autoGpxLatLng.clear();
-                    autoGpxLatLng = new ArrayList<>();
-                    local[0] = 0;
-                    autoPreLatlng[0] = new LatLng(0, 0);
-                    lastLatLongitude[0] = new LatLng(0,0);
-                }
-            }
-        });
-
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-            @Override
-            public void onMapClick(LatLng latLng) {
-                if (!lineValue) {
-                    shareMulti.setVisibility(View.GONE);
-                    removeLast.setVisibility(View.VISIBLE);
-                    clearMap.setVisibility(View.VISIBLE);
-                    if (i[0] == 0) {
-                        preLatLng[0] = latLng;
-                        Log.i("Hobe ", "hobe");
-
-                        options.position(latLng);
-                        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
-                        options.anchor((float) 0.5, (float) 0.5);
-                        options.snippet("0 KM");
-                        options.title("Starting Point");
-                        previousLatlng[0] = latLng;
-                        gpxLatLng.add(latLng);
-//                            mMap.addMarker(options).setTitle("Starting Point");
-                        mm[0] = mMap.addMarker(options);
-                        option[0].add(latLng);
-                        i[0]++;
-//                            mMap.addPolyline(option[0]);
-                        polylines[0] = mMap.addPolyline(option[0]);
-                    } else {
-                        i[0]++;
-                        Log.i("Hobe ", "hobe");
-                        previousLatlng[0] = preLatLng[0];
-                        options.position(latLng);
-                        Double distance = CalculationByDistance(preLatLng[0], latLng);
-                        k[0] = distance;
-                        j[0] = j[0] + distance;
-                        options.snippet(String.format("%.3f", j[0]) + " KM");
-                        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.circle));
-                        options.anchor((float) 0.5, (float) 0.5);
-                        options.title("Road Point");
-                        gpxLatLng.add(latLng);
-//                            mMap.addMarker(options).setTitle("Road Point");
-                        mm[0] = mMap.addMarker(options);
-
-                        preLatLng[0] = latLng;
-                        option[0].add(latLng);
-//                            mMap.addPolyline(option[0]);
-                        polylines[0] = mMap.addPolyline(option[0]);
-
-                    }
-
-                }
-                if (wayPointValue) {
-                    removeLast.setVisibility(View.VISIBLE);
-                    clearMap.setVisibility(View.VISIBLE);
-                    preWayPoint[0] = latLng;
-                    wp.position(latLng);
-                    wp.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
-                    wp.title("TTIT");
-                    wpLatLng.add(latLng);
-                    fromMap = true;
-                    fromButton = false;
-                    wwpp[0] = mMap.addMarker(wp);
-                } else {
-                    Log.i("Hobe na", "Kissu");
-                }
-            }
-        });
-
-        instantWay.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (wayPointValue && isWayStart) {
-                    removeLast.setVisibility(View.VISIBLE);
-                    clearMap.setVisibility(View.VISIBLE);
-                    if (checkLatLng[0] != instantWayLatLng[0]) {
-                        System.out.println(instantWayLatLng[0]);
-                        checkLatLng[0] = instantWayLatLng[0];
-                        preWayPoint[0] = instantWayLatLng[0];
-                        wp.position(instantWayLatLng[0]);
-                        fromButton = true;
-                        fromMap = false;
-                        wp.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
-                        wp.title("TTIT");
-                        wpLatLng.add(instantWayLatLng[0]);
-                        wwpp[0] = mMap.addMarker(wp);
-                    } else {
-//                        Toast.makeText(getApplicationContext(), "This Way Point matches the previous one",Toast.LENGTH_SHORT).show();
-                        Toast.makeText(getApplicationContext(), "এই জায়গাটি আগে আরেকবার নেয়া হয়েছে",Toast.LENGTH_SHORT).show();
-                    }
-                }
-            }
-        });
-
-        removeLast.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                i[0]--;
-                if (mm[0] != null && polylines[0] != null && i[0] == 0) {
-                    Log.i("Pai", "na");
-                    mm[0].remove();
-                    polylines[0].remove();
-                    int index = gpxLatLng.lastIndexOf(previousLatlng[0]);
-                    gpxLatLng.remove(index);
-                    option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
-                    removeLast.setVisibility(View.GONE);
-                }
-                if (mm[0] != null && polylines[0] != null && i[0] != 0) {
-                    Log.i("Pai", "na");
-                    int index = gpxLatLng.lastIndexOf(preLatLng[0]);
-                    gpxLatLng.remove(index);
-                    mm[0].remove();
-                    polylines[0].remove();
-                    option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
-                    option[0].add(previousLatlng[0]);
-                    preLatLng[0] = previousLatlng[0];
-                    j[0] = j[0] - k[0];
-                    removeLast.setVisibility(View.GONE);
-
-                }
-                if (wayPointValue && wwpp[0] != null && fromMap) {
-                    wwpp[0].remove();
-                    fromMap = false;
-                    int index = wpLatLng.lastIndexOf(preWayPoint[0]);
-                    wpLatLng.remove(index);
-                    removeLast.setVisibility(View.GONE);
-                }
-                if (wayPointValue && wwpp[0] != null && fromButton) {
-                    wwpp[0].remove();
-                    fromButton = false;
-                    checkLatLng[0] = new LatLng(0,0);
-                    int index = wpLatLng.lastIndexOf(preWayPoint[0]);
-                    wpLatLng.remove(index);
-                    removeLast.setVisibility(View.GONE);
-                }
-            }
-        });
-
-        drawLine.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (lineValue) {
-                    shareMulti.setVisibility(View.GONE);
+                    gpxLatLng.clear();
                     gpxLatLng = new ArrayList<>();
-                    lineValue = false;
-                    autoLine.setVisibility(View.GONE);
-                    drawWayPoint.setVisibility(View.GONE);
-                    drawLine.setText("রাস্তা সংরক্ষণ করুন / Save Track");
-                    option[0] = new PolylineOptions().width(8).color(Color.RED).geodesic(true);
 
-                } else {
-                    if (gpxLatLng.size() == 0) {
-//                        Toast.makeText(getApplicationContext(), "Please Draw Line to Save", Toast.LENGTH_SHORT).show();
-                        Toast.makeText(getApplicationContext(), "আগে রাস্তা চিহ্নিত করুন তারপরে সংরক্ষণ করুন", Toast.LENGTH_SHORT).show();
-
-                    } else {
-                        saveFile.setVisibility(View.VISIBLE);
-                        autoLine.setVisibility(View.VISIBLE);
-                        drawWayPoint.setVisibility(View.VISIBLE);
-                        lineValue = true;
-                        removeLast.setVisibility(View.GONE);
-
-                        drawLine.setText("রাস্তা/Track (Manual)");
-                        length_multi = (String.format("%.3f", j[0]) + " KM");
-                        preLatLng[0] = new LatLng(0, 0);
-
-                        String start = "\t<trk>\n" +
-                                "\t\t<name>TTIT</name>\n";
-                        String desc = "\t\t<desc>Length: " + length_multi + "</desc>\n";
-                        String trkseg = "\t\t<trkseg>\n";
-                        String trkpt = "";
-                        for (int b = 0; b < gpxLatLng.size(); b++) {
-                            Log.i("Latlng :", gpxLatLng.get(b).toString());
-                            trkpt += "\t\t\t<trkpt lat=\"" + gpxLatLng.get(b).latitude + "\" lon=\"" + gpxLatLng.get(b).longitude + "\"></trkpt>\n";
-                        }
-                        String trksegFinish = "\t\t</trkseg>\n";
-                        String finish = "\t</trk>\n";
-
-                        trk.add(start + desc + trkseg + trkpt + trksegFinish + finish);
-
-                        gpxLatLng.clear();;
-                        gpxLatLng = new ArrayList<>();
-
-                        i[0] = 0;
-                        j[0] = 0.0;
-                        option[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
-                        mm[0] = null;
-                        polylines[0] = null;
-                        k[0] = 0.0;
-                        preLatLng[0] = new LatLng(0, 0);
-                        previousLatlng[0] = new LatLng(0, 0);
-
-                    }
-                }
-            }
-        });
-
-
-        drawWayPoint.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!wayPointValue) {
-                    shareMulti.setVisibility(View.GONE);
-                    wpLatLng = new ArrayList<>();
-                    wayPointValue = true;
-                    isWayStart = true;
-                    autoLine.setVisibility(View.GONE);
-                    drawLine.setVisibility(View.GONE);
-                    instantWay.setVisibility(View.VISIBLE);
-                    drawWayPoint.setText("সংরক্ষণ করুন / Save WayPoint");
-                    Toast.makeText(getApplicationContext(),"আরও ভাল পজিশন পেতে অনুগ্রহ করে ৫ থেকে ১০ সেকেন্ড অপেক্ষা করুন",Toast.LENGTH_LONG).show();
-                    if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return;
-                    }
-                    fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-                } else {
-                    if (wpLatLng.size() == 0) {
-                        Toast.makeText(getApplicationContext(), "আগে চিহ্নিত করুন তারপরে সংরক্ষণ করুন", Toast.LENGTH_SHORT).show();
-                    }else {
-                        wayPointValue = false;
-                        saveFile.setVisibility(View.VISIBLE);
-                        autoLine.setVisibility(View.VISIBLE);
-                        drawLine.setVisibility(View.VISIBLE);
-                        instantWay.setVisibility(View.GONE);
-                        removeLast.setVisibility(View.GONE);
-
-                        drawWayPoint.setText("স্থাপনা/WayPoint");
-                        // notun code
-                        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-                        //
-                        for (int i = 0; i < wpLatLng.size(); i++) {
-
-                            String wpt = "\t<wpt lat=\""+ wpLatLng.get(i).latitude +"\" lon=\""+ wpLatLng.get(i).longitude+"\">\n" +
-                                    "\t\t<name>TTIT</name>\n" +
-                                    "\t</wpt>";
-                            trk.add(wpt);
-                        }
-
-                        wpLatLng.clear();
-                        wpLatLng = new ArrayList<>();
-
-                        preWayPoint[0] = new LatLng(0,0);
-                        checkLatLng[0] = new LatLng(0,0);
-                        instantWayLatLng[0] = new LatLng(0,0);
-                        wwpp[0] = null;
-
-
-                    }
-
+                    i[0] = 0;
+                    j[0] = 0.0;
+                    option[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
+                    mm[0] = null;
+                    polylines[0] = null;
+                    k[0] = 0.0;
+                    preLatLng[0] = new LatLng(0, 0);
+                    previousLatlng[0] = new LatLng(0, 0);
 
                 }
             }
         });
 
-        clearMap.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mMap.clear();
-                fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-                i[0] = 0;
-                option[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
-                mm[0] = null;
-                polylines[0] = null;
-                nop[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
-                j[0] = 0.0;
-                k[0] = 0.0;
-                preLatLng[0] = new LatLng(0, 0);
-                previousLatlng[0] = new LatLng(0, 0);
-                local[0] = 0;
-                autoPreLatlng[0] = new LatLng(0, 0);
-                lastLatLongitude[0] = new LatLng(0,0);
-                preWayPoint[0] = new LatLng(0,0);
-                checkLatLng[0] = new LatLng(0,0);
-                instantWayLatLng[0] = new LatLng(0,0);
-                wwpp[0] = null;
-                w[0] = 0.0;
-                gpxLatLng.clear();
-                gpxLatLng = new ArrayList<>();
-                autoGpxLatLng.clear();
-                autoGpxLatLng= new ArrayList<>();
-                wpLatLng.clear();
-                wpLatLng = new ArrayList<>();
-                trk.clear();
-                trk = new ArrayList<>();
 
-                lineValue = true;
-                autoLineValue = false;
-                wayPointValue= false;
-                isStart = false;
-                isWayStart = false;
-                fromMap = false;
-                fromButton = false;
-                lineStart = "0";
-
-                drawLine.setVisibility(View.VISIBLE);
-                drawLine.setText("রাস্তা/Track (Manual)");
-                drawWayPoint.setVisibility(View.VISIBLE);
-                drawWayPoint.setText("স্থাপনা/WayPoint");
-                autoLine.setVisibility(View.VISIBLE);
-                autoLine.setText("রাস্তা/Track (Automatic)");
-                removeLast.setVisibility(View.GONE);
-                instantWay.setVisibility(View.GONE);
-                clearMap.setVisibility(View.VISIBLE);
-                saveFile.setVisibility(View.GONE);
+        drawWayPoint.setOnClickListener(v -> {
+            if (!wayPointValue) {
                 shareMulti.setVisibility(View.GONE);
-            }
-        });
-
-        saveFile.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-//                shareMulti.setVisibility(View.VISIBLE);
-                SaveMulti saveMulti = new SaveMulti();
-                saveMulti.show(getSupportFragmentManager(),"Multi");
-            }
-        });
-
-        back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivityForMulti.this);
-                builder.setTitle("পিছনে যান/GO BACK")
-                        .setMessage("আপনি কি আগের পেইজ এ যেতে চান?/Are you sure want to go back?")
-                        .setPositiveButton("হ্যাঁ/YES", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                fusedLocationProviderClientCamera.removeLocationUpdates(locationCallbackCamera);
-                                fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-                                finish();
-                            }
-                        })
-                        .setNegativeButton("না/NO", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-
-                            }
-                        });
-                AlertDialog alert = builder.create();
-                alert.setCanceledOnTouchOutside(false);
-                alert.setCancelable(false);
-                alert.show();
-            }
-        });
-
-        shareMulti.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String stringFIle = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath() + File.separator +  fileName +".gpx";
-
-                File file = new File(stringFIle);
-                if (!file.exists()) {
-                    Toast.makeText(getApplicationContext(), "File Not Found", Toast.LENGTH_SHORT).show();
+                wpLatLng = new ArrayList<>();
+                wayPointValue = true;
+                isWayStart = true;
+                autoLine.setVisibility(View.GONE);
+                drawLine.setVisibility(View.GONE);
+                instantWay.setVisibility(View.VISIBLE);
+                String dpt = "সংরক্ষণ করুন / Save WayPoint";
+                drawWayPoint.setText(dpt);
+                Toast.makeText(getApplicationContext(),"আরও ভাল পজিশন পেতে অনুগ্রহ করে ৫ থেকে ১০ সেকেন্ড অপেক্ষা করুন",Toast.LENGTH_LONG).show();
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     return;
                 }
-                Intent intentShare = new Intent(Intent.ACTION_SEND);
-                intentShare.setType("*/*");
-                intentShare.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + file));
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+            } else {
+                if (wpLatLng.isEmpty()) {
+                    Toast.makeText(getApplicationContext(), "আগে চিহ্নিত করুন তারপরে সংরক্ষণ করুন", Toast.LENGTH_SHORT).show();
+                }else {
+                    wayPointValue = false;
+                    saveFile.setVisibility(View.VISIBLE);
+                    autoLine.setVisibility(View.VISIBLE);
+                    drawLine.setVisibility(View.VISIBLE);
+                    instantWay.setVisibility(View.GONE);
+                    removeLast.setVisibility(View.GONE);
+                    String dpt = "স্থাপনা/WayPoint";
+                    drawWayPoint.setText(dpt);
+                    // notun code
+                    fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+                    //
+                    for (int i1 = 0; i1 < wpLatLng.size(); i1++) {
 
-                startActivity(Intent.createChooser(intentShare, "Share the File..."));
+                        String wpt = "\t<wpt lat=\""+ wpLatLng.get(i1).latitude +"\" lon=\""+ wpLatLng.get(i1).longitude+"\">\n" +
+                                "\t\t<name>TTIT</name>\n" +
+                                "\t</wpt>";
+                        trk.add(wpt);
+                    }
+
+                    wpLatLng.clear();
+                    wpLatLng = new ArrayList<>();
+
+                    preWayPoint[0] = new LatLng(0,0);
+                    checkLatLng[0] = new LatLng(0,0);
+                    instantWayLatLng[0] = new LatLng(0,0);
+                    wwpp[0] = null;
+
+
+                }
+
+
             }
+        });
+
+        clearMap.setOnClickListener(v -> {
+            mMap.clear();
+            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+            i[0] = 0;
+            option[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
+            mm[0] = null;
+            polylines[0] = null;
+            nop[0] = new PolylineOptions().width(5).color(Color.RED).geodesic(true);
+            j[0] = 0.0;
+            k[0] = 0.0;
+            preLatLng[0] = new LatLng(0, 0);
+            previousLatlng[0] = new LatLng(0, 0);
+            local[0] = 0;
+            autoPreLatlng[0] = new LatLng(0, 0);
+            lastLatLongitude[0] = new LatLng(0,0);
+            preWayPoint[0] = new LatLng(0,0);
+            checkLatLng[0] = new LatLng(0,0);
+            instantWayLatLng[0] = new LatLng(0,0);
+            wwpp[0] = null;
+            w[0] = 0.0;
+            gpxLatLng.clear();
+            gpxLatLng = new ArrayList<>();
+            autoGpxLatLng.clear();
+            autoGpxLatLng= new ArrayList<>();
+            wpLatLng.clear();
+            wpLatLng = new ArrayList<>();
+            trk.clear();
+            trk = new ArrayList<>();
+
+            lineValue = true;
+            autoLineValue = false;
+            wayPointValue= false;
+            isStart = false;
+            isWayStart = false;
+            fromMap = false;
+            fromButton = false;
+            lineStart = "0";
+
+            drawLine.setVisibility(View.VISIBLE);
+            String dlt = "রাস্তা/Track (Manual)";
+            drawLine.setText(dlt);
+            drawWayPoint.setVisibility(View.VISIBLE);
+            String dpt = "স্থাপনা/WayPoint";
+            drawWayPoint.setText(dpt);
+            autoLine.setVisibility(View.VISIBLE);
+            String alt = "রাস্তা/Track (Automatic)";
+            autoLine.setText(alt);
+            removeLast.setVisibility(View.GONE);
+            instantWay.setVisibility(View.GONE);
+            clearMap.setVisibility(View.VISIBLE);
+            saveFile.setVisibility(View.GONE);
+            shareMulti.setVisibility(View.GONE);
+        });
+
+        saveFile.setOnClickListener(v -> {
+
+//                shareMulti.setVisibility(View.VISIBLE);
+            SaveMulti saveMulti = new SaveMulti();
+            saveMulti.show(getSupportFragmentManager(),"Multi");
+        });
+
+        back.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivityForMulti.this);
+            builder.setTitle("পিছনে যান/GO BACK")
+                    .setMessage("আপনি কি আগের পেইজ এ যেতে চান?/Are you sure want to go back?")
+                    .setPositiveButton("হ্যাঁ/YES", (dialog, which) -> {
+                        fusedLocationProviderClientCamera.removeLocationUpdates(locationCallbackCamera);
+                        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+                        finish();
+                    })
+                    .setNegativeButton("না/NO", (dialog, which) -> {
+
+                    });
+            AlertDialog alert = builder.create();
+            alert.setCanceledOnTouchOutside(false);
+            alert.setCancelable(false);
+            alert.show();
+        });
+
+        shareMulti.setOnClickListener(v -> {
+            String stringFIle = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath() + File.separator +  fileName +".gpx";
+
+            File file = new File(stringFIle);
+            if (!file.exists()) {
+                Toast.makeText(getApplicationContext(), "File Not Found", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intentShare = new Intent(Intent.ACTION_SEND);
+            intentShare.setType("*/*");
+            intentShare.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + file));
+
+            startActivity(Intent.createChooser(intentShare, "Share the File..."));
         });
 
         locationCallbackCamera = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
-                }
                 for (Location location : locationResult.getLocations()) {
-
                     targetLocation = location;
                     cameraLatLng[0] = new LatLng(location.getLatitude(), location.getLongitude());
                     Log.i("Camera LocationUpdate:",cameraLatLng[0].toString());
@@ -936,49 +902,47 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 
         fusedLocationProviderClientCamera.requestLocationUpdates(locationRequestCamera, locationCallbackCamera, Looper.getMainLooper());
 
-        camera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (cameraLatLng[0] != null) {
-                    //Toast.makeText(getApplicationContext(), "Open Camera",Toast.LENGTH_SHORT).show();
-                    Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                    // Ensure that there's a camera activity to handle the intent
-                    if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-                        // Create the File where the photo should go
-                        File photoFile = null;
-                        try {
-                            photoFile = createImageFile();
-                        } catch (IOException ex) {
-                            System.out.println("PhotoFile: " + ex.getLocalizedMessage());
-                            // Error occurred while creating the File
-                        }
-                        // Continue only if the File was successfully created
-                        if (photoFile != null) {
-                            Uri photoURI = FileProvider.getUriForFile(getApplicationContext(),
-                                    "com.example.android.shuvoCameraProviderGPX",
-                                    photoFile);
-                            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                            try {
-//                                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
-                                activityResultLauncher.launch(takePictureIntent);
-                                Log.i("Activity:", "Shuru hoise");
-
-                            } catch (ActivityNotFoundException e) {
-                                // display error state to the user
-                                System.out.println("Activity: "+e.getLocalizedMessage());
-                            }
-
-                        }
+        camera.setOnClickListener(v -> {
+            if (cameraLatLng[0] != null) {
+                Toast.makeText(getApplicationContext(), "Camera is opening",Toast.LENGTH_SHORT).show();
+                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                // Ensure that there's a camera activity to handle the intent
+                if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                    // Create the File where the photo should go
+                    File photoFile = null;
+                    try {
+                        photoFile = createImageFile();
+                    } catch (IOException ex) {
+                        System.out.println("PhotoFile: " + ex.getLocalizedMessage());
+                        // Error occurred while creating the File
                     }
-                } else {
-                    Toast.makeText(getApplicationContext(), "Location Not Found",Toast.LENGTH_SHORT).show();
+                    // Continue only if the File was successfully created
+                    if (photoFile != null) {
+                        Uri photoURI = FileProvider.getUriForFile(getApplicationContext(),
+                                "com.example.android.shuvoCameraProviderGPX",
+                                photoFile);
+                        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                        takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        try {
+//                                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+                            activityResultLauncher.launch(takePictureIntent);
+                            Log.i("Activity:", "Shuru hoise");
+
+                        } catch (ActivityNotFoundException e) {
+                            // display error state to the user
+                            System.out.println("Activity: "+e.getLocalizedMessage());
+                        }
+
+                    }
                 }
+            } else {
+                Toast.makeText(getApplicationContext(), "Location Not Found",Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     ActivityResultLauncher<Intent> activityResultLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+            new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<>() {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     int resultCode = result.getResultCode();
@@ -995,25 +959,28 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
                         if(imgFile.exists()) {
                             System.out.println(currentPhotoPath);
 
-                            bitmap = BitmapFactory.decodeFile(currentPhotoPath);
-                            try {
-                                bitmap = modifyOrientation(bitmap, currentPhotoPath);
-                            } catch (IOException e) {
-                                e.printStackTrace();
+                            if (currentPhotoPath != null && !currentPhotoPath.isEmpty()) {
+                                bitmap = BitmapFactory.decodeFile(currentPhotoPath);
+
+                                try {
+                                    bitmap = modifyOrientation(bitmap, currentPhotoPath);
+                                } catch (IOException e) {
+                                    logger.log(Level.WARNING,e.getMessage(),e);
+                                }
+
+                                android.graphics.Bitmap.Config bitmapConfig = bitmap.getConfig();
+                                // set default bitmap config if none
+                                if (bitmapConfig == null) {
+                                    bitmapConfig = android.graphics.Bitmap.Config.ARGB_8888;
+                                }
+                                // resource bitmaps are imutable,
+                                // so we need to convert it to mutable one
+                                bitmap = bitmap.copy(bitmapConfig, true);
+
+
+                                ImageDialogue imageDialogue = new ImageDialogue();
+                                imageDialogue.show(getSupportFragmentManager(), "Image");
                             }
-
-                            android.graphics.Bitmap.Config bitmapConfig = bitmap.getConfig();
-                            // set default bitmap config if none
-                            if(bitmapConfig == null) {
-                                bitmapConfig = android.graphics.Bitmap.Config.ARGB_8888;
-                            }
-                            // resource bitmaps are imutable,
-                            // so we need to convert it to mutable one
-                            bitmap = bitmap.copy(bitmapConfig, true);
-
-
-                            ImageDialogue imageDialogue = new ImageDialogue();
-                            imageDialogue.show(getSupportFragmentManager(),"Image");
                         }
                     }
                 }
@@ -1026,8 +993,8 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
         System.out.println(timeStamp);
         String imageFileName = "IMGLC_" + timeStamp + "_";
         System.out.println(imageFileName);
-        Boolean exists = false;
-        File file = null;
+//        Boolean exists = false;
+//        File file = null;
         //File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
 
@@ -1103,7 +1070,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 //            // TennisAppActivity.showDialog(add);
 //        } catch (IOException e) {
 //            // TODO Auto-generated catch block
-//            e.printStackTrace();
+//            logger.log(Level.WARNING,e.getMessage(),e);
 //            address = "Address Not Found";
 ////            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
 //        }
@@ -1147,7 +1114,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 //                try {
 //                    bitmap = modifyOrientation(bitmap, currentPhotoPath);
 //                } catch (IOException e) {
-//                    e.printStackTrace();
+//                    logger.log(Level.WARNING,e.getMessage(),e);
 //                }
 //                Resources resources = getResources();
 //                float scale = resources.getDisplayMetrics().density;
@@ -1220,18 +1187,18 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 ////                    fileOutputStream = new FileOutputStream(file);
 ////
 ////                } catch (Exception e) {
-////                    e.printStackTrace();
+////                    logger.log(Level.WARNING,e.getMessage(),e);
 ////                }
 ////                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream);
 ////                try {
 ////                    fileOutputStream.flush();
 ////                } catch (Exception e) {
-////                    e.printStackTrace();
+////                    logger.log(Level.WARNING,e.getMessage(),e);
 ////                }
 ////                try {
 ////                    fileOutputStream.close();
 ////                } catch (Exception e) {
-////                    e.printStackTrace();
+////                    logger.log(Level.WARNING,e.getMessage(),e);
 ////                }
 //
 ////                Toast.makeText(getApplicationContext(), "Photo is saved", Toast.LENGTH_SHORT).show();
@@ -1251,7 +1218,7 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 ////
 ////                    exif.saveAttributes();
 ////                } catch (Exception e) {
-////                    e.printStackTrace();
+////                    logger.log(Level.WARNING,e.getMessage(),e);
 ////                }
 //
 ////                scanFile(getApplicationContext(),currentPhotoPath, null);
@@ -1261,31 +1228,6 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
 //            }
 //        }
 //    }
-
-    @Override
-    public void onBackPressed() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("পিছনে যান/GO BACK")
-                .setMessage("আপনি কি আগের পেইজ এ যেতে চান?/Are you sure want to go back?")
-                .setPositiveButton("হ্যাঁ/YES", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        MapsActivityForMulti.this.finish();
-                        fusedLocationProviderClientCamera.removeLocationUpdates(locationCallbackCamera);
-                        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-                    }
-                })
-                .setNegativeButton("না/NO", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-
-                    }
-                });
-        AlertDialog alert = builder.create();
-        alert.setCanceledOnTouchOutside(false);
-        alert.setCancelable(false);
-        alert.show();
-    }
 
     public void zoomToUserLocation(){
 
@@ -1303,62 +1245,59 @@ public class MapsActivityForMulti extends AppCompatActivity implements OnMapRead
         mMap.setMyLocationEnabled(true);
 
         Task<Location> locationTask = fusedLocationProviderClient.getLastLocation();
-        locationTask.addOnSuccessListener(new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
+        locationTask.addOnSuccessListener(location -> {
 //                Log.i("lattt", location.toString());
-                LatLng latLng = new LatLng(23.6850, 90.3563);
+            LatLng latLng;
 
 
-                if (location != null) {
-                    latLng = new LatLng(location.getLatitude(), location.getLongitude());
-                    System.out.println(latLng);
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18));
-                } else {
-                    latLng = new LatLng(23.6850, 90.3563);
-                    System.out.println(latLng);
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7));
-                }
-
+            if (location != null) {
+                latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                System.out.println(latLng);
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18));
+            } else {
+                latLng = new LatLng(23.6850, 90.3563);
+                System.out.println(latLng);
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7));
             }
+
         });
 
 
 
     }
 
-    private static StringBuilder createDebugStringBuilder(File filePath) {
-        return new StringBuilder("Set Exif to file='").append(filePath.getAbsolutePath()).append("'\n\t");
-    }
+//    private static StringBuilder createDebugStringBuilder(File filePath) {
+//        return new StringBuilder("Set Exif to file='").append(filePath.getAbsolutePath()).append("'\n\t");
+//    }
 
-    public LatLng getLastLocation() {
-        if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            Log.i("Permission:", "Checked");
-        }
-        final LatLng[] latLng = {null};
-        fusedLocationProviderClientCamera.getLastLocation()
-                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(Location location) {
-                        // Got last known location. In some rare situations this can be null.
-
-                        if (location != null) {
-                            // Logic to handle location object
-                            System.out.println("Location Camera: " +location.toString());
-                            latLng[0] = new LatLng(location.getLatitude(),location.getLongitude());
-                        } else {
-                            System.out.println("Location Camera Null");
-                        }
-                    }
-                });
-        System.out.println(latLng[0]);
-        return latLng[0];
-    }
+//    public LatLng getLastLocation() {
+//        if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+//            // TODO: Consider calling
+//            //    ActivityCompat#requestPermissions
+//            // here to request the missing permissions, and then overriding
+//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//            //                                          int[] grantResults)
+//            // to handle the case where the user grants the permission. See the documentation
+//            // for ActivityCompat#requestPermissions for more details.
+//            Log.i("Permission:", "Checked");
+//        }
+//        final LatLng[] latLng = {null};
+//        fusedLocationProviderClientCamera.getLastLocation()
+//                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+//                    @Override
+//                    public void onSuccess(Location location) {
+//                        // Got last known location. In some rare situations this can be null.
+//
+//                        if (location != null) {
+//                            // Logic to handle location object
+//                            System.out.println("Location Camera: " +location.toString());
+//                            latLng[0] = new LatLng(location.getLatitude(),location.getLongitude());
+//                        } else {
+//                            System.out.println("Location Camera Null");
+//                        }
+//                    }
+//                });
+//        System.out.println(latLng[0]);
+//        return latLng[0];
+//    }
 }
